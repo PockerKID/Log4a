@@ -1,6 +1,7 @@
 package me.pqpo.log4a;
 
 import android.content.Context;
+import android.os.Environment;
 
 import java.io.File;
 
@@ -11,10 +12,7 @@ import java.io.File;
 public class FileUtils {
 
     public static File getLogDir(Context context) {
-        File log = context.getExternalFilesDir("logs");
-        if (log == null) {
-            log = new File(context.getFilesDir(), "logs");
-        }
+        File log = new File(Environment.getExternalStorageDirectory(), "logs");
         if (!log.exists()) {
             log.mkdir();
         }

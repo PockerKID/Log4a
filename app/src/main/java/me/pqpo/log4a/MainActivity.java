@@ -1,6 +1,5 @@
 package me.pqpo.log4a;
 
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -29,6 +28,12 @@ import me.pqpo.log4a.append.NoBufferInThreadFileAppender;
 
 import static me.pqpo.log4a.LogInit.BUFFER_SIZE;
 
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.hjq.permissions.OnPermissionCallback;
+import com.hjq.permissions.Permission;
+import com.hjq.permissions.XXPermissions;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
@@ -54,53 +59,7 @@ public class MainActivity extends AppCompatActivity {
         tvTest = findViewById(R.id.tv_test);
         etTimes = findViewById(R.id.et_times);
 
-        btnWrite.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (testing) {
-                    Toast.makeText(getApplicationContext(), "testing", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                int threads = Integer.valueOf(etThread.getText().toString());
-                if (threads > 500) {
-                    Toast.makeText(getApplicationContext(), "Do not exceed 500 threads", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                final String str = etContent.getText().toString();
-                for (int i=0; i<threads; i++) {
-                    new Thread(){
-                        @Override
-                        public void run() {
-                            super.run();
-                            Log4a.i(TAG, str);
-                        }
-                    }.start();
-                }
-                tvTest.setText("done!\nlog file path:" + getLogPath());
-            }
-        });
-
-        btnTest.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (!testing) {
-                    tvTest.setText("start testing\n");
-                    testing = true;
-                    int times = Integer.valueOf(etTimes.getText().toString());
-                    performanceTest(times);
-                    testing = false;
-                } else {
-                    Toast.makeText(getApplicationContext(), "testing", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
-
-        findViewById(R.id.btn_change_log).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                changeLogPath();
-            }
-        });
+        checkPermissions();
 
     }
 
@@ -112,34 +71,34 @@ public class MainActivity extends AppCompatActivity {
         Log4a.setLogger(logger);
 
         logger.addAppender(createLog4aFileAppender());
-        doPerformanceTest("log4a" ,times);
+        doPerformanceTest("log4a", times);
         Log4a.release();
 
         Log4a.setLogger(logger);
         logger.addAppender(createAndroidLogAppender());
-        doPerformanceTest("android log" ,times);
+        doPerformanceTest("android log", times);
         Log4a.release();
 
         Log4a.setLogger(logger);
         List<String> buffer = new ArrayList<>(times);
         logger.addAppender(createMemAppender(buffer));
-        doPerformanceTest("array list log" ,times);
+        doPerformanceTest("array list log", times);
         buffer.clear();
         Log4a.release();
 
         Log4a.setLogger(logger);
         logger.addAppender(createNoBufferFileAppender());
-        doPerformanceTest("file log(no buffer)" ,times);
+        doPerformanceTest("file log(no buffer)", times);
         Log4a.release();
 
         Log4a.setLogger(logger);
         logger.addAppender(createWithBufferFileAppender());
-        doPerformanceTest("file log(with buffer)" ,times);
+        doPerformanceTest("file log(with buffer)", times);
         Log4a.release();
 
         Log4a.setLogger(logger);
         logger.addAppender(createNoBufferInThreadFileAppender());
-        doPerformanceTest("file log(no buffer in thread)" ,times);
+        doPerformanceTest("file log(no buffer in thread)", times);
         tvTest.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -216,7 +175,7 @@ public class MainActivity extends AppCompatActivity {
         String logPath = "";
         Logger logger = Log4a.getLogger();
         if (logger instanceof AppenderLogger) {
-            List<Appender> appenderList = ((AppenderLogger)logger).getAppenderList();
+            List<Appender> appenderList = ((AppenderLogger) logger).getAppenderList();
             for (Appender appender : appenderList) {
                 if (appender instanceof FileAppender) {
                     FileAppender fileAppender = (FileAppender) appender;
@@ -231,7 +190,7 @@ public class MainActivity extends AppCompatActivity {
     public void changeLogPath() {
         Logger logger = Log4a.getLogger();
         if (logger instanceof AppenderLogger) {
-            List<Appender> appenderList = ((AppenderLogger)logger).getAppenderList();
+            List<Appender> appenderList = ((AppenderLogger) logger).getAppenderList();
             for (Appender appender : appenderList) {
                 if (appender instanceof FileAppender) {
                     FileAppender fileAppender = (FileAppender) appender;
@@ -249,5 +208,83 @@ public class MainActivity extends AppCompatActivity {
     public void onBackPressed() {
         super.onBackPressed();
         Log4a.flush();
+    }
+
+    private void checkPermissions() {
+        if (XXPermissions.isGranted(this, Permission.MANAGE_EXTERNAL_STORAGE)) {
+            init();
+        } else {
+            XXPermissions.with(this).permission(Permission.MANAGE_EXTERNAL_STORAGE)
+                    .request(new OnPermissionCallback() {
+                        @Override
+                        public void onGranted(List<String> permissions, boolean all) {
+                            if (all) {
+                                Toast.makeText(getApplicationContext(), "获取存储权限成功", Toast.LENGTH_SHORT).show();
+                                init();
+                            }
+                        }
+
+                        @Override
+                        public void onDenied(List<String> permissions, boolean never) {
+                            if (never) {
+                                Toast.makeText(getApplicationContext(), "被永久拒绝授权，请手动授予存储权限", Toast.LENGTH_SHORT).show();
+                                // 如果是被永久拒绝就跳转到应用权限系统设置页面
+                                XXPermissions.startPermissionActivity(MainActivity.this);
+                            } else {
+                                Toast.makeText(getApplicationContext(), "获取存储权限失败", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
+        }
+    }
+
+    private void init(){
+        btnWrite.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (testing) {
+                    Toast.makeText(getApplicationContext(), "testing", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                int threads = Integer.valueOf(etThread.getText().toString());
+                if (threads > 500) {
+                    Toast.makeText(getApplicationContext(), "Do not exceed 500 threads", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                final String str = etContent.getText().toString();
+                for (int i = 0; i < threads; i++) {
+                    new Thread() {
+                        @Override
+                        public void run() {
+                            super.run();
+                            Log4a.i(TAG, str);
+                        }
+                    }.start();
+                }
+                tvTest.setText("done!\nlog file path:" + getLogPath());
+            }
+        });
+
+        btnTest.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (!testing) {
+                    tvTest.setText("start testing\n");
+                    testing = true;
+                    int times = Integer.valueOf(etTimes.getText().toString());
+                    performanceTest(times);
+                    testing = false;
+                } else {
+                    Toast.makeText(getApplicationContext(), "testing", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        findViewById(R.id.btn_change_log).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                changeLogPath();
+            }
+        });
     }
 }

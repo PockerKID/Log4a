@@ -31,6 +31,7 @@ public class DateFileFormatter implements Formatter {
         mDate = instance.getTime();
     }
 
+    @Override
     public synchronized String format(int logLevel, String tag, String msg) {
         if ((System.currentTimeMillis() - mDate.getTime()) > 1000 || lastDataFormated == null) {
             mDate.setTime(System.currentTimeMillis());
